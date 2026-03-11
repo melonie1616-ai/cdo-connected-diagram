@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CDO Connected Projects Diagram</title>
+<script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0f1923;
+    color: #e0e6ed;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    background: linear-gradient(135deg, #1a2a3a 0%, #0d1b2a 100%);
+    border-bottom: 1px solid #2a3f55;
+    padding: 16px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+
+  header h1 {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: #ffffff;
+  }
+
+  header h1 span {
+    color: #4fc3f7;
+    font-weight: 700;
+  }
+
+  .header-subtitle {
+    font-size: 12px;
+    color: #7a9bb5;
+    margin-top: 2px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .filter-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid #2a3f55;
+    background: transparent;
+    color: #7a9bb5;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .filter-btn:hover, .filter-btn.active {
+    background: #1e3a52;
+    color: #4fc3f7;
+    border-color: #4fc3f7;
+  }
+
+  .main-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  #network-canvas {
+    flex: 1;
+    background: #0f1923;
+  }
+
+  .sidebar {
+    width: 340px;
+    background: #13232f;
+    border-left: 1px solid #2a3f55;
+    display: flex;
+    flex-direction: column;
+    transition: margin-right 0.3s ease;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .sidebar.collapsed {
+    margin-right: -340px;
+  }
+
+  .sidebar-header {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid #2a3f55;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sidebar-header h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #7a9bb5;
+    font-weight: 600;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    color: #7a9bb5;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px;
+    line-height: 1;
+  }
+
+  .close-btn:hover { color: #e0e6ed; }
+
+  .sidebar-content {
+    padding: 20px;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .sidebar-content::-webkit-scrollbar { width: 6px; }
+  .sidebar-content::-webkit-scrollbar-track { background: transparent; }
+  .sidebar-content::-webkit-scrollbar-thumb { background: #2a3f55; border-radius: 3px; }
+
+  .detail-placeholder {
+    text-align: center;
+    padding: 60px 20px;
+    color: #4a6a82;
+  }
+
+  .detail-placeholder svg {
+    margin-bottom: 16px;
+    opacity: 0.4;
+  }
+
+  .detail-placeholder p {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .project-detail { animation: fadeIn 0.25s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .project-name {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: #ffffff;
+  }
+
+  .project-pillar {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+  }
+
+  .project-owner {
+    font-size: 13px;
+    color: #7a9bb5;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .project-owner svg { flex-shrink: 0; }
+
+  .detail-section {
+    margin-bottom: 20px;
+  }
+
+  .detail-section h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #4a6a82;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+
+  .detail-section p {
+    font-size: 13px;
+    line-height: 1.7;
+    color: #b0c4d8;
+  }
+
+  .connections-list {
+    list-style: none;
+  }
+
+  .connections-list li {
+    padding: 6px 10px;
+    margin-bottom: 4px;
+    background: #1a2d3d;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #b0c4d8;
+    cursor: pointer;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .connections-list li:hover {
+    background: #1e3a52;
+    color: #4fc3f7;
+  }
+
+  .connections-list .arrow { color: #4a6a82; font-size: 10px; }
+
+  .detail-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 20px;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, #1565c0, #1e88e5);
+    color: #fff;
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: opacity 0.2s;
+  }
+
+  .detail-link:hover { opacity: 0.85; }
+
+  .legend {
+    padding: 16px 20px;
+    border-top: 1px solid #2a3f55;
+    flex-shrink: 0;
+  }
+
+  .legend h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #4a6a82;
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+
+  .legend-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #7a9bb5;
+    cursor: pointer;
+    padding: 3px 8px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+
+  .legend-item:hover { background: #1a2d3d; }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .toggle-sidebar {
+    position: fixed;
+    right: 16px;
+    top: 72px;
+    z-index: 20;
+    background: #1e3a52;
+    border: 1px solid #2a3f55;
+    color: #4fc3f7;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    display: none;
+  }
+
+  .toggle-sidebar.visible { display: block; }
+  .toggle-sidebar:hover { background: #254a62; }
+
+  .instructions {
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    background: rgba(19, 35, 47, 0.9);
+    border: 1px solid #2a3f55;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 11px;
+    color: #4a6a82;
+    z-index: 10;
+    backdrop-filter: blur(8px);
+  }
+
+  .instructions span { color: #7a9bb5; }
+
+  .admin-lock {
+    background: none;
+    border: 1px solid #2a3f55;
+    border-radius: 6px;
+    color: #4a6a82;
+    cursor: pointer;
+    padding: 6px 8px;
+    font-size: 14px;
+    transition: all 0.2s;
+    margin-left: 8px;
+  }
+  .admin-lock:hover { color: #4fc3f7; border-color: #4fc3f7; }
+  .admin-lock.unlocked { color: #ffca28; border-color: #ffca28; }
+
+  .admin-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 400px;
+    height: 100vh;
+    background: #13232f;
+    border-right: 1px solid #2a3f55;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.4);
+  }
+  .admin-panel.open { transform: translateX(0); }
+
+  .admin-panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #2a3f55;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    background: #1a2a3a;
+  }
+  .admin-panel-header h2 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #ffca28;
+  }
+
+  .admin-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+  }
+  .admin-panel-body::-webkit-scrollbar { width: 6px; }
+  .admin-panel-body::-webkit-scrollbar-track { background: transparent; }
+  .admin-panel-body::-webkit-scrollbar-thumb { background: #2a3f55; border-radius: 3px; }
+
+  .admin-section {
+    margin-bottom: 24px;
+    border-bottom: 1px solid #1e3040;
+    padding-bottom: 20px;
+  }
+  .admin-section:last-child { border-bottom: none; }
+  .admin-section h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #4fc3f7;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+
+  .admin-field {
+    margin-bottom: 10px;
+  }
+  .admin-field label {
+    display: block;
+    font-size: 11px;
+    color: #7a9bb5;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .admin-field input,
+  .admin-field select,
+  .admin-field textarea {
+    width: 100%;
+    padding: 8px 10px;
+    background: #1a2d3d;
+    border: 1px solid #2a3f55;
+    border-radius: 6px;
+    color: #e0e6ed;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .admin-field input:focus,
+  .admin-field select:focus,
+  .admin-field textarea:focus {
+    border-color: #4fc3f7;
+  }
+  .admin-field textarea { resize: vertical; min-height: 60px; }
+  .admin-field select option { background: #1a2d3d; color: #e0e6ed; }
+
+  .admin-btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    margin-right: 6px;
+    margin-top: 6px;
+  }
+  .admin-btn:hover { opacity: 0.85; }
+  .admin-btn-primary { background: #1565c0; color: #fff; }
+  .admin-btn-success { background: #388e3c; color: #fff; }
+  .admin-btn-danger { background: #c62828; color: #fff; }
+  .admin-btn-warning { background: #f57c00; color: #fff; }
+
+  .admin-conn-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    background: #1a2d3d;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    font-size: 12px;
+    color: #b0c4d8;
+  }
+  .admin-conn-item .conn-del {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: #ef5350;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 4px;
+  }
+  .admin-conn-item .conn-del:hover { color: #ff8a80; }
+  .admin-conn-list { max-height: 200px; overflow-y: auto; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1><span>CDO</span> Programs and Projects</h1>
+    <div class="header-subtitle">Corporate Data &amp; AI Office &mdash; March 2026</div>
+  </div>
+  <div class="header-right">
+    <button class="filter-btn active" data-group="all" onclick="filterGroup('all')">All</button>
+    <button class="filter-btn" data-group="foundation" onclick="filterGroup('foundation')">Data Foundation</button>
+    <button class="filter-btn" data-group="domains" onclick="filterGroup('domains')">Domains</button>
+    <button class="filter-btn" data-group="ai" onclick="filterGroup('ai')">AI</button>
+    <button class="filter-btn" data-group="analytics" onclick="filterGroup('analytics')">Analytics</button>
+    <button class="filter-btn" data-group="communications" onclick="filterGroup('communications')">Communications</button>
+    <button class="admin-lock" id="adminLock" onclick="toggleAdmin()" title="Admin Panel">&#128274;</button>
+  </div>
+</header>
+
+<div class="admin-panel" id="adminPanel">
+  <div class="admin-panel-header">
+    <h2>Admin Panel</h2>
+    <button class="close-btn" onclick="closeAdmin()">&times;</button>
+  </div>
+  <div class="admin-panel-body">
+    <div class="admin-section">
+      <h3>Edit Project</h3>
+      <div class="admin-field">
+        <label>Select Project</label>
+        <select id="adminProjectSelect" onchange="adminLoadProject()"><option value="">-- Select --</option></select>
+      </div>
+      <div id="adminEditFields" style="display:none">
+        <div class="admin-field"><label>Label</label><input id="adminLabel" type="text"></div>
+        <div class="admin-field"><label>Group</label><select id="adminGroup"></select></div>
+        <div class="admin-field">
+          <label>Additional Groups (comma-separated, optional)</label>
+          <input id="adminGroups" type="text" placeholder="e.g. ai,communications">
+        </div>
+        <div class="admin-field"><label>Owner</label><input id="adminOwner" type="text"></div>
+        <div class="admin-field"><label>Description</label><textarea id="adminDesc"></textarea></div>
+        <div class="admin-field"><label>URL</label><input id="adminUrl" type="text"></div>
+        <div class="admin-field" style="display:flex;gap:8px">
+          <div style="flex:1"><label>X Position</label><input id="adminX" type="number"></div>
+          <div style="flex:1"><label>Y Position</label><input id="adminY" type="number"></div>
+        </div>
+        <button class="admin-btn admin-btn-primary" onclick="adminSaveProject()">Save Changes</button>
+        <button class="admin-btn admin-btn-danger" onclick="adminDeleteProject()">Delete Project</button>
+      </div>
+    </div>
+
+    <div class="admin-section">
+      <h3>Add New Project</h3>
+      <div class="admin-field"><label>ID (unique, no spaces)</label><input id="newId" type="text" placeholder="e.g. myProject"></div>
+      <div class="admin-field"><label>Label</label><input id="newLabel" type="text"></div>
+      <div class="admin-field"><label>Group</label><select id="newGroup"></select></div>
+      <div class="admin-field"><label>Owner</label><input id="newOwner" type="text"></div>
+      <div class="admin-field"><label>Description</label><textarea id="newDesc"></textarea></div>
+      <div class="admin-field"><label>URL</label><input id="newUrl" type="text" value="#"></div>
+      <div class="admin-field" style="display:flex;gap:8px">
+        <div style="flex:1"><label>X</label><input id="newX" type="number" value="0"></div>
+        <div style="flex:1"><label>Y</label><input id="newY" type="number" value="0"></div>
+      </div>
+      <button class="admin-btn admin-btn-success" onclick="adminAddProject()">Add Project</button>
+    </div>
+
+    <div class="admin-section">
+      <h3>Connections</h3>
+      <div class="admin-conn-list" id="adminConnList"></div>
+      <div class="admin-field"><label>From</label><select id="connFrom"></select></div>
+      <div class="admin-field"><label>To</label><select id="connTo"></select></div>
+      <div class="admin-field"><label>Label</label><input id="connLabel" type="text"></div>
+      <button class="admin-btn admin-btn-success" onclick="adminAddConnection()">Add Connection</button>
+    </div>
+
+    <div class="admin-section">
+      <h3>Danger Zone</h3>
+      <button class="admin-btn admin-btn-warning" onclick="adminReset()">Reset to Defaults</button>
+    </div>
+  </div>
+</div>
+
+<div class="main-container">
+  <div id="network-canvas"></div>
+
+  <div class="sidebar collapsed" id="sidebar">
+    <div class="sidebar-header">
+      <h2>Project Details</h2>
+      <button class="close-btn" onclick="closeSidebar()">&times;</button>
+    </div>
+    <div class="sidebar-content" id="sidebar-content">
+      <div class="detail-placeholder">
+        <svg width="48" height="48" fill="none" stroke="#4a6a82" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+        <p>Click on any project node to view its details, connections, and links.</p>
+      </div>
+    </div>
+    <div class="legend">
+      <h3>Legend</h3>
+      <div class="legend-items">
+        <div class="legend-item" onclick="filterGroup('ai')"><div class="legend-dot" style="background:#4fc3f7"></div>AI</div>
+        <div class="legend-item" onclick="filterGroup('foundation')"><div class="legend-dot" style="background:#66bb6a"></div>Data Foundation</div>
+        <div class="legend-item" onclick="filterGroup('analytics')"><div class="legend-dot" style="background:#ffca28"></div>Analytics</div>
+        <div class="legend-item" onclick="filterGroup('communications')"><div class="legend-dot" style="background:#ab47bc"></div>Communications</div>
+        <div class="legend-item" onclick="filterGroup('domains')"><div class="legend-dot" style="background:#ef5350"></div>Data Domains</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<button class="toggle-sidebar visible" id="toggleSidebar" onclick="openSidebar()">&#9666; Details</button>
+
+<div class="instructions">
+  <span>Click</span> a node for details &nbsp;|&nbsp; <span>Double-click</span> to open Project Optics &nbsp;|&nbsp; <span>Drag</span> to rearrange &nbsp;|&nbsp; <span>Scroll</span> to zoom
+</div>
+
+<script>
+/* =======================================================================
+   PROJECT DATA — Edit this section to add/remove projects, change
+   connections, fill in URLs, or update descriptions.
+   ======================================================================= */
+
+const GROUP_COLORS = {
+  ai:           { bg: '#4fc3f7', border: '#0288d1', highlight: '#81d4fa', font: '#0a1a2a', pillarBg: 'rgba(79,195,247,0.15)', pillarColor: '#4fc3f7' },
+  foundation:   { bg: '#66bb6a', border: '#388e3c', highlight: '#a5d6a7', font: '#0a1a2a', pillarBg: 'rgba(102,187,106,0.15)', pillarColor: '#66bb6a' },
+  communications: { bg: '#ab47bc', border: '#7b1fa2', highlight: '#ce93d8', font: '#0a1a2a', pillarBg: 'rgba(171,71,188,0.15)', pillarColor: '#ab47bc' },
+  analytics:    { bg: '#ffca28', border: '#f9a825', highlight: '#fff176', font: '#0a1a2a', pillarBg: 'rgba(255,202,40,0.15)', pillarColor: '#ffca28' },
+  domains:      { bg: '#ef5350', border: '#c62828', highlight: '#ef9a9a', font: '#0a1a2a', pillarBg: 'rgba(239,83,80,0.15)', pillarColor: '#ef5350' }
+};
+
+const DEFAULT_PROJECTS = [
+  // --- AI (Anthony Marguccio) --- top right
+  {
+    id: 'nexusOS',
+    label: 'NexusOS',
+    group: 'ai',
+    x: 100, y: -300,
+    owner: 'Anthony Marguccio',
+    description: 'Production-ready enterprise AI platform. Includes Nexus Chat, AI Control Plane & Agents, App Template Libraries, and platform convergence. Provides governed, role-based AI that drives real adoption and business value across the enterprise.',
+    url: 'https://projectoptics.vercel.app/#page=reports&projects=NexusOS'
+  },
+  {
+    id: 'digitalNexus',
+    label: 'Digital Nexus',
+    group: 'ai',
+    x: 450, y: -130,
+    owner: 'Anthony Marguccio',
+    description: 'Digital experience layer powered by NexusOS. Sales-led adoption expansion into Operations, Finance, Contracts, and more. AI product pipeline with Magellan R&D capabilities and multi-agent workflows.',
+    url: 'https://projectoptics.vercel.app/#page=reports&projects=Digital%20Nexus'
+  },
+
+  {
+    id: 'aiTransformation',
+    label: 'AI Transformation\nProgram - NEW',
+    group: 'ai',
+    x: 400, y: -280,
+    owner: '',
+    description: 'New initiative — AI Transformation Program. Details to be defined.',
+    url: '#'
+  },
+
+  // --- Data Foundation (Sean Harrison) --- left side
+  {
+    id: 'dataPlatform',
+    label: 'Data Platform',
+    group: 'foundation',
+    x: -200, y: -300,
+    owner: 'Sean Harrison',
+    description: 'Trusted, governed platform that enables analytics, AI, and decision intelligence across DigitalONE, Global Portal, and core business domains. Includes enterprise data platform enablement, citizen-led AI & automation (n8n, Cursor), and analytics/BI data products (KID & GOAT).',
+    url: 'https://projectoptics.vercel.app/#page=reports&projects=Data%20Program%5CData%20Platform'
+  },
+  {
+    id: 'mdmPlatform',
+    label: 'MDM Platform',
+    group: 'foundation',
+    x: -400, y: -150,
+    owner: 'Sean Harrison',
+    description: 'Master Data Management platform delivering golden records. Ensures authoritative, trusted data assets across customer, contract, and inventory domains with data model harmonization.',
+    url: 'https://projectoptics.vercel.app/#page=reports&projects=Data%20Program%5CMDM%20Platform'
+  },
+  {
+    id: 'governance',
+    label: 'Data and AI\nGovernance',
+    group: 'foundation',
+    groups: ['foundation', 'ai'],
+    x: 400, y: -50,
+    owner: 'Sean Harrison',
+    description: 'Enterprise Data & AI standards for responsible AI adoption aligned with compliance and ethics. Expanding governance mechanisms across all platforms and domains.',
+    url: 'https://projectoptics.vercel.app/#page=reports&projects=Data%20Program%5CData%20and%20AI%20Governance'
+  },
+  {
+    id: 'infoArch',
+    label: 'Information\nArchitecture',
+    group: 'foundation',
+    x: -450, y: 50,
+    owner: 'Sean Harrison',
+    description: 'Harmonizing data models across multiple platforms for unified semantic understanding in operational and analytical workflows. Feeds the canonical data model used by MDM and Integrations.',
+    url: 'https://projectoptics.vercel.app/#page=reports&projects=Data%20Program%5CInformation%20Architecture'
+  },
+  {
+    id: 'migrationCleanup',
+    label: 'Migration &\nSite Cleanup',
+    group: 'foundation',
+    x: -250, y: 200,
+    owner: 'Sean Harrison',
+    description: 'Legacy data migration and site cleanup initiatives supporting the DigitalONE platform transition. Works closely with Footloose for data reconciliation.',
+    url: 'https://projectoptics.vercel.app/#page=reports&projects=Data%20Program%5CMigration%20and%20Site%20Cleanup'
+  },
+  {
+    id: 'r3eda',
+    label: 'R3 EDA',
+    group: 'analytics',
+    x: -500, y: 200,
+    owner: 'Sean Harrison',
+    description: 'Event-driven architecture initiative enabling real-time data flows and event patterns across the enterprise integration landscape.',
+    url: 'https://projectoptics.vercel.app/#page=reports&projects=Data%20Program%5CR3%20EDA'
+  },
+
+  // --- Communications (Melonie Poole) --- bottom right
+  {
+    id: 'pmrs',
+    label: 'PMRs',
+    group: 'communications',
+    x: 180, y: 340,
+    owner: 'Melonie Poole',
+    description: 'Program Management Reviews — cross-domain PMRs with business engagement to drive visibility, alignment, and accountability. Formalized reporting cadences including weekly scorecards and monthly reviews.',
+    url: 'https://projectoptics.vercel.app/#page=reports&projects=CDO%20Communications%5CPMRs'
+  },
+  {
+    id: 'aiSuperworker',
+    label: 'AI Superworker',
+    group: 'ai',
+    groups: ['ai', 'communications'],
+    x: 350, y: 200,
+    owner: 'Melonie Poole',
+    description: 'Enterprise-wide initiative to improve AI literacy, awareness, and proficiency across the organization. Weekly sessions building practical AI skills through real workflows — 968 members globally, avg attendance of 198. Partnered with Ops L&D and aligned with Corp Comms.',
+    url: 'https://projectoptics.vercel.app/#page=reports&projects=CDO%20Communications%5CAI%20Superworker'
+  },
+  {
+    id: 'dataLiteracy',
+    label: 'Data Literacy',
+    group: 'communications',
+    x: 400, y: 100,
+    owner: 'Melonie Poole',
+    description: 'Enterprise-wide initiative to improve literacy, awareness, and proficiency with trusted data. Trusted Data Series delivers bite-sized videos building data literacy and governance understanding, driving adoption of governed data practices across the enterprise.',
+    url: 'https://projectoptics.vercel.app/#page=reports&projects=CDO%20Communications%5CData%20Literacy'
+  },
+
+  // --- Data Domains --- center
+  {
+    id: 'customer',
+    label: 'Customer',
+    group: 'domains',
+    x: -50, y: -150,
+    owner: 'Sean Harrison',
+    description: 'Customer data domain — ensuring customer master data is authoritative, trusted, and aligned across systems. Feeds into MDM Platform for golden record management.',
+    url: 'https://projectoptics.vercel.app/#page=reports&projects=Data%20Program%5CCustomer'
+  },
+  {
+    id: 'contract',
+    label: 'Contract',
+    group: 'domains',
+    x: 200, y: -100,
+    owner: 'Sean Harrison',
+    description: 'Contract data domain — managing contract master data integrity and harmonization across platforms and business processes.',
+    url: 'https://projectoptics.vercel.app/#page=reports&projects=Data%20Program%5CContract'
+  },
+  {
+    id: 'inventory',
+    label: 'Inventory',
+    group: 'domains',
+    x: -50, y: 30,
+    owner: 'Sean Harrison',
+    description: 'Inventory data domain — trusted inventory data supporting capacity planning, operations, and customer-facing analytics.',
+    url: 'https://projectoptics.vercel.app/#page=reports&projects=Data%20Program%5CInventory'
+  },
+  {
+    id: 'finance',
+    label: 'Finance',
+    group: 'domains',
+    x: 200, y: 60,
+    owner: 'Sean Harrison',
+    description: 'Finance data domain — financial data integration and analytics feeding into the enterprise data platform for reporting and decision intelligence.',
+    url: 'https://projectoptics.vercel.app/#page=reports&projects=Data%20Program%5CFinance'
+  },
+  {
+    id: 'operations',
+    label: 'Operations',
+    group: 'domains',
+    x: 50, y: 220,
+    owner: 'Sean Harrison',
+    description: 'Operations data domain — operational data supporting site management, service delivery, and business process optimization across the enterprise.',
+    url: 'https://projectoptics.vercel.app/#page=reports&projects=Data%20Program%5COperations'
+  }
+];
+
+const DEFAULT_CONNECTIONS = [
+  // All domains connect to MDM Platform, Data Platform, and Governance
+  { from: 'customer',   to: 'mdmPlatform',  label: 'master data' },
+  { from: 'customer',   to: 'dataPlatform', label: 'domain data' },
+  { from: 'customer',   to: 'governance',   label: 'governed' },
+  { from: 'contract',   to: 'mdmPlatform',  label: 'master data' },
+  { from: 'contract',   to: 'dataPlatform', label: 'domain data' },
+  { from: 'contract',   to: 'governance',   label: 'governed' },
+  { from: 'inventory',  to: 'mdmPlatform',  label: 'master data' },
+  { from: 'inventory',  to: 'dataPlatform', label: 'domain data' },
+  { from: 'inventory',  to: 'governance',   label: 'governed' },
+  { from: 'finance',    to: 'mdmPlatform',  label: 'master data' },
+  { from: 'finance',    to: 'dataPlatform', label: 'domain data' },
+  { from: 'finance',    to: 'governance',   label: 'governed' },
+  { from: 'operations', to: 'mdmPlatform',  label: 'master data' },
+  { from: 'operations', to: 'dataPlatform', label: 'domain data' },
+  { from: 'operations', to: 'governance',   label: 'governed' },
+  // All domains feed into PMRs
+  { from: 'customer',   to: 'pmrs', label: 'reporting' },
+  { from: 'contract',   to: 'pmrs', label: 'reporting' },
+  { from: 'inventory',  to: 'pmrs', label: 'reporting' },
+  { from: 'finance',    to: 'pmrs', label: 'reporting' },
+  { from: 'operations', to: 'pmrs', label: 'reporting' },
+  // Data Foundation feeds into all domains
+  { from: 'dataPlatform', to: 'customer',   label: 'data services' },
+  { from: 'dataPlatform', to: 'contract',   label: 'data services' },
+  { from: 'dataPlatform', to: 'inventory',  label: 'data services' },
+  { from: 'dataPlatform', to: 'finance',    label: 'data services' },
+  { from: 'dataPlatform', to: 'operations', label: 'data services' },
+  { from: 'mdmPlatform',  to: 'customer',   label: 'golden records' },
+  { from: 'mdmPlatform',  to: 'contract',   label: 'golden records' },
+  { from: 'mdmPlatform',  to: 'inventory',  label: 'golden records' },
+  { from: 'mdmPlatform',  to: 'finance',    label: 'golden records' },
+  { from: 'mdmPlatform',  to: 'operations', label: 'golden records' },
+  { from: 'infoArch',     to: 'customer',   label: 'data models' },
+  { from: 'infoArch',     to: 'contract',   label: 'data models' },
+  { from: 'infoArch',     to: 'inventory',  label: 'data models' },
+  { from: 'infoArch',     to: 'finance',    label: 'data models' },
+  { from: 'infoArch',     to: 'operations', label: 'data models' },
+  // Foundation flows
+  { from: 'mdmPlatform',      to: 'dataPlatform',  label: 'golden records' },
+  { from: 'mdmPlatform',      to: 'migrationCleanup', label: 'master data' },
+  { from: 'infoArch',         to: 'mdmPlatform',   label: 'data models' },
+  { from: 'governance',       to: 'dataPlatform',  label: 'standards' },
+  { from: 'governance',       to: 'nexusOS',       label: 'AI governance' },
+  { from: 'migrationCleanup', to: 'customer',        label: 'migration' },
+  { from: 'migrationCleanup', to: 'contract',        label: 'migration' },
+  { from: 'migrationCleanup', to: 'inventory',       label: 'migration' },
+  { from: 'migrationCleanup', to: 'finance',         label: 'migration' },
+  { from: 'migrationCleanup', to: 'operations',      label: 'migration' },
+  { from: 'r3eda',            to: 'finance',          label: 'event data' },
+  // AI
+  { from: 'dataPlatform', to: 'nexusOS',        label: 'data for AI' },
+  { from: 'nexusOS',      to: 'digitalNexus',   label: 'powers' },
+
+  // Enterprise-wide literacy & adoption
+  { from: 'aiSuperworker', to: 'nexusOS',       label: 'AI literacy' },
+  { from: 'aiSuperworker', to: 'digitalNexus',  label: 'AI literacy' },
+  { from: 'aiSuperworker', to: 'governance',    label: 'AI awareness' },
+  { from: 'dataLiteracy',  to: 'dataPlatform',  label: 'data literacy' },
+  { from: 'dataLiteracy',  to: 'mdmPlatform',   label: 'data literacy' },
+  { from: 'dataLiteracy',  to: 'governance',    label: 'governance awareness' },
+];
+
+const LAYOUT_VERSION = 2;
+const _savedVersion = parseInt(localStorage.getItem('cdo_layout_version'), 10);
+if (_savedVersion !== LAYOUT_VERSION) {
+  localStorage.removeItem('cdo_projects');
+  localStorage.removeItem('cdo_connections');
+  localStorage.setItem('cdo_layout_version', LAYOUT_VERSION);
+}
+const _storedProjects = JSON.parse(localStorage.getItem('cdo_projects'));
+const _storedConnections = JSON.parse(localStorage.getItem('cdo_connections'));
+const PROJECTS = (_storedProjects && _storedProjects.length > 0) ? _storedProjects : DEFAULT_PROJECTS;
+const CONNECTIONS = (_storedConnections && _storedConnections.length > 0) ? _storedConnections : DEFAULT_CONNECTIONS;
+
+function saveData() {
+  localStorage.setItem('cdo_projects', JSON.stringify(PROJECTS));
+  localStorage.setItem('cdo_connections', JSON.stringify(CONNECTIONS));
+}
+
+/* =======================================================================
+   NETWORK RENDERING
+   ======================================================================= */
+
+const nodes = new vis.DataSet(PROJECTS.map(p => {
+  const gc = GROUP_COLORS[p.group];
+  const isDomain = p.group === 'domains';
+  const isDualGroup = p.groups && p.groups.length > 1;
+  const secondaryColor = isDualGroup ? GROUP_COLORS[p.groups.find(g => g !== p.group)] : null;
+  return {
+    id: p.id,
+    label: isDomain ? '★ ' + p.label : p.label,
+    group: p.group,
+    x: p.x,
+    y: p.y,
+    fixed: { x: false, y: false },
+    shape: 'box',
+    margin: isDomain
+      ? { top: 18, bottom: 18, left: 26, right: 26 }
+      : { top: 16, bottom: 16, left: 22, right: 22 },
+    font: {
+      color: gc.font,
+      size: isDomain ? 20 : 18,
+      face: "'Segoe UI', system-ui, sans-serif",
+      bold: { color: gc.font },
+      multi: true
+    },
+    color: {
+      background: gc.bg,
+      border: isDualGroup ? secondaryColor.border : gc.border,
+      highlight: { background: gc.highlight, border: isDualGroup ? secondaryColor.border : gc.border },
+      hover: { background: gc.highlight, border: isDualGroup ? secondaryColor.border : gc.border }
+    },
+    borderWidth: isDualGroup ? 4 : (isDomain ? 3 : 2),
+    borderWidthSelected: isDualGroup ? 5 : (isDomain ? 4 : 3),
+    shadow: {
+      enabled: true,
+      color: isDomain ? gc.bg + '44' : 'rgba(0,0,0,0.3)',
+      size: isDomain ? 14 : 8,
+      x: 2, y: 2
+    },
+    chosen: {
+      node: function(values) {
+        values.shadowSize = 16;
+        values.shadowColor = gc.bg + '66';
+      }
+    }
+  };
+}));
+
+const edges = new vis.DataSet(CONNECTIONS.map((c, i) => ({
+  id: 'e' + i,
+  from: c.from,
+  to: c.to,
+  label: c.label || '',
+  arrows: { to: { enabled: true, scaleFactor: 0.7, type: 'arrow' } },
+  color: { color: '#2a4a62', highlight: '#4fc3f7', hover: '#3a6a8a', opacity: 0.8 },
+  font: { color: '#4a6a82', size: 10, strokeWidth: 3, strokeColor: '#0f1923', face: "'Segoe UI', system-ui, sans-serif", align: 'top' },
+  width: 1.5,
+  smooth: { type: 'curvedCW', roundness: 0.15 },
+  dashes: c.dashed ? [6, 4] : false,
+  hoverWidth: 0.5,
+  selectionWidth: 1
+})));
+
+const container = document.getElementById('network-canvas');
+const data = { nodes, edges };
+
+const options = {
+  physics: {
+    enabled: false
+  },
+  interaction: {
+    hover: true,
+    tooltipDelay: 200,
+    zoomView: true,
+    dragView: true,
+    navigationButtons: false,
+    keyboard: { enabled: true }
+  },
+  layout: {
+    improvedLayout: true
+  },
+  groups: {
+    ai:           { shape: 'box' },
+    foundation:   { shape: 'box' },
+    analytics:    { shape: 'box' },
+    communications: { shape: 'box' },
+    domains:      { shape: 'box' }
+  }
+};
+
+const network = new vis.Network(container, data, options);
+
+/* =======================================================================
+   SIDEBAR & INTERACTIVITY
+   ======================================================================= */
+
+const sidebar = document.getElementById('sidebar');
+const sidebarContent = document.getElementById('sidebar-content');
+const toggleBtn = document.getElementById('toggleSidebar');
+
+function closeSidebar() {
+  sidebar.classList.add('collapsed');
+  toggleBtn.classList.add('visible');
+}
+
+function openSidebar() {
+  sidebar.classList.remove('collapsed');
+  toggleBtn.classList.remove('visible');
+}
+
+function getProjectById(id) {
+  return PROJECTS.find(p => p.id === id);
+}
+
+function getConnections(projectId) {
+  const outgoing = CONNECTIONS.filter(c => c.from === projectId).map(c => ({
+    targetId: c.to,
+    label: c.label,
+    direction: 'outgoing'
+  }));
+  const incoming = CONNECTIONS.filter(c => c.to === projectId).map(c => ({
+    targetId: c.from,
+    label: c.label,
+    direction: 'incoming'
+  }));
+  return { outgoing, incoming };
+}
+
+function showProjectDetail(projectId) {
+  const project = getProjectById(projectId);
+  if (!project) return;
+
+  const gc = GROUP_COLORS[project.group];
+  const conns = getConnections(projectId);
+  const groupNames = { ai: 'AI', foundation: 'Data Foundation', analytics: 'Analytics', communications: 'Communications', domains: 'Data Domain' };
+  const allGroups = project.groups || [project.group];
+  const groupLabel = allGroups.map(g => groupNames[g]).join(' / ');
+
+  let connectionsHtml = '';
+
+  if (conns.incoming.length > 0) {
+    connectionsHtml += '<div class="detail-section"><h3>Receives From</h3><ul class="connections-list">';
+    conns.incoming.forEach(c => {
+      const target = getProjectById(c.targetId);
+      if (target) {
+        connectionsHtml += `<li onclick="focusNode('${c.targetId}')"><span class="arrow">&#9654;</span> ${target.label.replace(/\n/g, ' ')} <span style="color:#4a6a82;margin-left:auto;font-size:11px">${c.label}</span></li>`;
+      }
+    });
+    connectionsHtml += '</ul></div>';
+  }
+
+  if (conns.outgoing.length > 0) {
+    connectionsHtml += '<div class="detail-section"><h3>Feeds Into</h3><ul class="connections-list">';
+    conns.outgoing.forEach(c => {
+      const target = getProjectById(c.targetId);
+      if (target) {
+        connectionsHtml += `<li onclick="focusNode('${c.targetId}')"><span class="arrow">&#9654;</span> ${target.label.replace(/\n/g, ' ')} <span style="color:#4a6a82;margin-left:auto;font-size:11px">${c.label}</span></li>`;
+      }
+    });
+    connectionsHtml += '</ul></div>';
+  }
+
+  sidebarContent.innerHTML = `
+    <div class="project-detail">
+      <div class="project-name">${project.label.replace(/\n/g, ' ')}</div>
+      <div class="project-pillar" style="background:${gc.pillarBg};color:${gc.pillarColor}">${groupLabel}</div>
+      <div class="project-owner">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        ${project.owner}
+      </div>
+      <div class="detail-section">
+        <h3>Description</h3>
+        <p>${project.description}</p>
+      </div>
+      ${connectionsHtml}
+      <a class="detail-link" href="${project.url}" target="_blank">
+        View Details
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      </a>
+    </div>
+  `;
+
+  openSidebar();
+}
+
+function focusNode(nodeId) {
+  network.selectNodes([nodeId]);
+  network.focus(nodeId, { scale: 1.2, animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+  showProjectDetail(nodeId);
+}
+
+let rotationPaused = false;
+let rotationAngle = 0;
+const ROTATION_SPEED = 0.005;
+let rotationRAF = null;
+let centerX = 0;
+let centerY = 0;
+let nodePositionsSnapshot = null;
+
+function capturePositions() {
+  const positions = network.getPositions();
+  nodePositionsSnapshot = {};
+  let sumX = 0, sumY = 0, count = 0;
+  for (const id in positions) {
+    nodePositionsSnapshot[id] = { x: positions[id].x, y: positions[id].y };
+    sumX += positions[id].x;
+    sumY += positions[id].y;
+    count++;
+  }
+  centerX = sumX / count;
+  centerY = sumY / count;
+}
+
+function rotateNodes() {
+  if (rotationPaused || !nodePositionsSnapshot) {
+    rotationRAF = requestAnimationFrame(rotateNodes);
+    return;
+  }
+
+  rotationAngle += ROTATION_SPEED;
+  const cos = Math.cos(ROTATION_SPEED);
+  const sin = Math.sin(ROTATION_SPEED);
+
+  for (const id in nodePositionsSnapshot) {
+    const p = nodePositionsSnapshot[id];
+    const dx = p.x - centerX;
+    const dy = p.y - centerY;
+    p.x = centerX + dx * cos - dy * sin;
+    p.y = centerY + dx * sin + dy * cos;
+    network.moveNode(id, p.x, p.y);
+  }
+
+  rotationRAF = requestAnimationFrame(rotateNodes);
+}
+
+network.on('click', function(params) {
+  if (params.nodes.length > 0) {
+    rotationPaused = true;
+    showProjectDetail(params.nodes[0]);
+  } else {
+    rotationPaused = false;
+    capturePositions();
+  }
+});
+
+network.on('doubleClick', function(params) {
+  if (params.nodes.length > 0) {
+    const project = getProjectById(params.nodes[0]);
+    if (project && project.url && project.url !== '#') {
+      window.open(project.url, '_blank');
+    }
+  }
+});
+
+network.on('hoverNode', function() {
+  rotationPaused = true;
+});
+
+network.on('blurNode', function() {
+  if (!network.getSelectedNodes().length) {
+    rotationPaused = false;
+    capturePositions();
+  }
+});
+
+network.on('dragStart', function() {
+  rotationPaused = true;
+});
+
+network.on('dragEnd', function() {
+  capturePositions();
+});
+
+/* =======================================================================
+   FILTERING
+   ======================================================================= */
+
+let currentFilter = 'all';
+
+function filterGroup(group) {
+  currentFilter = group;
+
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.group === group);
+  });
+
+  if (group === 'all') {
+    nodes.forEach(node => {
+      const p = getProjectById(node.id);
+      const gc = GROUP_COLORS[p.group];
+      const isDualGroup = p.groups && p.groups.length > 1;
+      const secondaryColor = isDualGroup ? GROUP_COLORS[p.groups.find(g => g !== p.group)] : null;
+      const isDomain = p.group === 'domains';
+      nodes.update({
+        id: node.id,
+        hidden: false,
+        color: {
+          background: gc.bg,
+          border: isDualGroup ? secondaryColor.border : gc.border,
+          highlight: { background: gc.highlight, border: isDualGroup ? secondaryColor.border : gc.border },
+          hover: { background: gc.highlight, border: isDualGroup ? secondaryColor.border : gc.border }
+        },
+        font: { color: gc.font, size: isDomain ? 20 : 18 },
+        borderWidth: isDualGroup ? 4 : (isDomain ? 3 : 2)
+      });
+    });
+    edges.forEach(edge => {
+      edges.update({ id: edge.id, hidden: false });
+    });
+    capturePositions();
+  } else {
+    const groupNodeIds = PROJECTS.filter(p => p.group === group || (p.groups && p.groups.includes(group))).map(p => p.id);
+
+    const connectedNodeIds = new Set(groupNodeIds);
+    CONNECTIONS.forEach(c => {
+      if (groupNodeIds.includes(c.from)) connectedNodeIds.add(c.to);
+      if (groupNodeIds.includes(c.to)) connectedNodeIds.add(c.from);
+    });
+
+    nodes.forEach(node => {
+      const inGroup = groupNodeIds.includes(node.id);
+      const connected = connectedNodeIds.has(node.id);
+      const gc = GROUP_COLORS[getProjectById(node.id).group];
+
+      if (inGroup) {
+        const isDomain = getProjectById(node.id).group === 'domains';
+        nodes.update({ id: node.id, hidden: false, color: { background: gc.bg, border: gc.border, highlight: { background: gc.highlight, border: gc.border }, hover: { background: gc.highlight, border: gc.border } }, font: { color: gc.font, size: isDomain ? 20 : 18 } });
+      } else if (connected) {
+        nodes.update({ id: node.id, hidden: false, color: { background: gc.bg + '55', border: gc.border + '55', highlight: { background: gc.highlight, border: gc.border }, hover: { background: gc.highlight, border: gc.border } }, font: { color: gc.font + '88', size: 16 } });
+      } else {
+        nodes.update({ id: node.id, hidden: true });
+      }
+    });
+
+    edges.forEach(edge => {
+      const conn = CONNECTIONS[parseInt(edge.id.substring(1))];
+      const relevant = connectedNodeIds.has(conn.from) && connectedNodeIds.has(conn.to);
+      edges.update({ id: edge.id, hidden: !relevant });
+    });
+  }
+
+  network.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+}
+
+network.fit({ animation: false });
+setTimeout(function() {
+  capturePositions();
+  rotateNodes();
+}, 500);
+
+/* =======================================================================
+   ADMIN PANEL
+   ======================================================================= */
+
+let adminUnlocked = false;
+const ADMIN_PASS = 'cdo2026';
+const adminPanel = document.getElementById('adminPanel');
+const adminLockBtn = document.getElementById('adminLock');
+const groupKeys = Object.keys(GROUP_COLORS);
+
+function toggleAdmin() {
+  if (!adminUnlocked) {
+    const pass = prompt('Enter admin passphrase:');
+    if (pass !== ADMIN_PASS) {
+      if (pass !== null) alert('Incorrect passphrase.');
+      return;
+    }
+    adminUnlocked = true;
+    adminLockBtn.classList.add('unlocked');
+    adminLockBtn.innerHTML = '&#128275;';
+  }
+  adminPanel.classList.toggle('open');
+  if (adminPanel.classList.contains('open')) {
+    setTimeout(function() {
+      populateAdminDropdowns();
+      renderConnectionsList();
+    }, 50);
+  }
+}
+
+function closeAdmin() {
+  adminPanel.classList.remove('open');
+}
+
+function populateAdminDropdowns() {
+  const projectData = PROJECTS && PROJECTS.length > 0 ? PROJECTS : DEFAULT_PROJECTS;
+
+  ['adminProjectSelect', 'connFrom', 'connTo'].forEach(sid => {
+    const sel = document.getElementById(sid);
+    if (!sel) return;
+    const val = sel.value;
+    sel.innerHTML = '<option value="">-- Select --</option>';
+    projectData.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = (p.label || p.id).replace(/\n/g, ' ');
+      sel.appendChild(opt);
+    });
+    if (val) sel.value = val;
+  });
+
+  ['adminGroup', 'newGroup'].forEach(sid => {
+    const sel = document.getElementById(sid);
+    if (!sel) return;
+    const val = sel.value;
+    sel.innerHTML = '';
+    groupKeys.forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g;
+      opt.textContent = g;
+      sel.appendChild(opt);
+    });
+    if (val) sel.value = val;
+  });
+}
+
+function adminLoadProject() {
+  const sel = document.getElementById('adminProjectSelect');
+  const fields = document.getElementById('adminEditFields');
+  if (!sel.value) { fields.style.display = 'none'; return; }
+  fields.style.display = 'block';
+  const p = PROJECTS.find(pr => pr.id === sel.value);
+  if (!p) return;
+  document.getElementById('adminLabel').value = p.label.replace(/\n/g, '\\n');
+  document.getElementById('adminGroup').value = p.group;
+  document.getElementById('adminGroups').value = (p.groups || []).join(',');
+  document.getElementById('adminOwner').value = p.owner || '';
+  document.getElementById('adminDesc').value = p.description || '';
+  document.getElementById('adminUrl').value = p.url || '#';
+  document.getElementById('adminX').value = p.x || 0;
+  document.getElementById('adminY').value = p.y || 0;
+}
+
+function adminSaveProject() {
+  const id = document.getElementById('adminProjectSelect').value;
+  const p = PROJECTS.find(pr => pr.id === id);
+  if (!p) return;
+  p.label = document.getElementById('adminLabel').value.replace(/\\n/g, '\n');
+  p.group = document.getElementById('adminGroup').value;
+  const groupsStr = document.getElementById('adminGroups').value.trim();
+  p.groups = groupsStr ? groupsStr.split(',').map(s => s.trim()) : undefined;
+  p.owner = document.getElementById('adminOwner').value;
+  p.description = document.getElementById('adminDesc').value;
+  p.url = document.getElementById('adminUrl').value;
+  p.x = parseInt(document.getElementById('adminX').value) || 0;
+  p.y = parseInt(document.getElementById('adminY').value) || 0;
+  saveData();
+  location.reload();
+}
+
+function adminDeleteProject() {
+  const id = document.getElementById('adminProjectSelect').value;
+  if (!id) return;
+  const p = PROJECTS.find(pr => pr.id === id);
+  if (!confirm('Delete "' + p.label.replace(/\n/g, ' ') + '"? This will also remove its connections.')) return;
+  const idx = PROJECTS.findIndex(pr => pr.id === id);
+  if (idx > -1) PROJECTS.splice(idx, 1);
+  for (let i = CONNECTIONS.length - 1; i >= 0; i--) {
+    if (CONNECTIONS[i].from === id || CONNECTIONS[i].to === id) CONNECTIONS.splice(i, 1);
+  }
+  saveData();
+  location.reload();
+}
+
+function adminAddProject() {
+  const id = document.getElementById('newId').value.trim();
+  if (!id) { alert('ID is required.'); return; }
+  if (PROJECTS.find(p => p.id === id)) { alert('A project with this ID already exists.'); return; }
+  PROJECTS.push({
+    id: id,
+    label: document.getElementById('newLabel').value || id,
+    group: document.getElementById('newGroup').value,
+    owner: document.getElementById('newOwner').value,
+    description: document.getElementById('newDesc').value,
+    url: document.getElementById('newUrl').value || '#',
+    x: parseInt(document.getElementById('newX').value) || 0,
+    y: parseInt(document.getElementById('newY').value) || 0
+  });
+  saveData();
+  location.reload();
+}
+
+function renderConnectionsList() {
+  const list = document.getElementById('adminConnList');
+  list.innerHTML = '';
+  CONNECTIONS.forEach((c, i) => {
+    const fromP = PROJECTS.find(p => p.id === c.from);
+    const toP = PROJECTS.find(p => p.id === c.to);
+    const div = document.createElement('div');
+    div.className = 'admin-conn-item';
+    div.innerHTML = (fromP ? fromP.label.replace(/\n/g, ' ') : c.from) +
+      ' &rarr; ' + (toP ? toP.label.replace(/\n/g, ' ') : c.to) +
+      ' <span style="color:#4a6a82;font-size:10px;margin-left:4px">(' + (c.label || '') + ')</span>' +
+      '<button class="conn-del" data-idx="' + i + '">&times;</button>';
+    list.appendChild(div);
+  });
+  list.querySelectorAll('.conn-del').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const idx = parseInt(this.dataset.idx);
+      CONNECTIONS.splice(idx, 1);
+      saveData();
+      renderConnectionsList();
+    });
+  });
+}
+
+function adminAddConnection() {
+  const from = document.getElementById('connFrom').value;
+  const to = document.getElementById('connTo').value;
+  const label = document.getElementById('connLabel').value;
+  if (!from || !to) { alert('Select both From and To.'); return; }
+  CONNECTIONS.push({ from, to, label });
+  saveData();
+  renderConnectionsList();
+  document.getElementById('connLabel').value = '';
+}
+
+function adminReset() {
+  if (!confirm('Reset all data to defaults? This will remove any custom changes.')) return;
+  localStorage.removeItem('cdo_projects');
+  localStorage.removeItem('cdo_connections');
+  location.reload();
+}
+
+setTimeout(function() {
+  try {
+    populateAdminDropdowns();
+    renderConnectionsList();
+  } catch(e) { console.error('Admin init error:', e); }
+}, 100);
+</script>
+
+</body>
+</html>
